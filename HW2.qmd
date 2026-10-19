@@ -1,3 +1,10 @@
+title: HCOL Red-lining and Environmental Justice Issues in LA
+date: 10/26/2026
+author: Jacob Sloan
+---
+```{r setup, include=FALSE} 
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+```
 ```{r}
 library(tidyverse)
 library(sf)
@@ -22,7 +29,11 @@ laejscreen <- ejscreen |>
     filter(CNTY_NAME == 'Los Angeles County')
 
 
-tm_shape(mapineqlos) +
+
+tm_shape(laejscreen)+
+    tm_borders(lwd = 0.1)+
+tm_layout(asp = 0) +
+tm_shape(mapineqlos, is.main = TRUE) +
     tm_polygons(
         fill = 'grade',
         fill.scale = tm_scale_categorical(values = c('green','blue','yellow','red')),
@@ -30,9 +41,7 @@ tm_shape(mapineqlos) +
     )+
     tm_title(text = 'HOLC Ranking of Neighborhoods in LA') +
     tm_compass(type = 'radar', position = tm_pos_out('center','bottom','center'))+
-    tm_scalebar(position = tm_pos_out('center','bottom','right')) +
-tm_shape(laejscreen)+
-    tm_borders(lwd = 0.1)
+    tm_scalebar(position = tm_pos_out('center','bottom','right'))
 ```
 
 ## Create table summarizing...
