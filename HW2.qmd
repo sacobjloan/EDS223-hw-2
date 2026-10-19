@@ -1,0 +1,200 @@
+```{r}
+library(tidyverse)
+library(sf)
+library(here)
+library(tmap)
+```
+
+```{r}
+ejscreen <- st_read('data/ejscreen/EJSCREEN_2023_BG_StatePct_with_AS_CNMI_GU_VI.gdb')
+mapineqlos <- st_read('data/mapping-inequality/mapping-inequality-los-angeles.json')
+mpainqnew <- st_read('data/mapping-inequality/mapping-inequality-new-haven.json')
+crashes <- st_read('data/SWITRS_LA/Crashes.csv')
+```
+
+# Part 1: Legacy of redlining in current environmental (in)justice
+
+## Create a map of historical redlined neighborhoods
+
+```{r}
+# map of LA redlining
+laejscreen <- ejscreen |> 
+    filter(CNTY_NAME == 'Los Angeles County')
+
+
+tm_shape(mapineqlos) +
+    tm_polygons(
+        fill = 'grade',
+        fill.scale = tm_scale_categorical(values = c('green','blue','yellow','red')),
+        fill.legend = tm_legend('HLOC Grade', frame = FALSE, position = tm_pos_out('center','bottom','left'))
+    )+
+    tm_title(text = 'HOLC Ranking of Neighborhoods in LA') +
+    tm_compass(type = 'radar', position = tm_pos_out('center','bottom','center'))+
+    tm_scalebar(position = tm_pos_out('center','bottom','right')) +
+tm_shape(laejscreen)+
+    tm_borders(lwd = 0.1)
+```
+
+## Create table summarizing...
+
+```{r}
+# Check CRS's before spatially joining
+st_crs(mapineqlos)
+st_crs(ejscreen)
+
+# convert CRS's and then spatial join
+mapineqlos<- st_transform(mapineqlos, crs = st_crs(ejscreen))
+ejxred <- st_join(mapineqlos, ejscreen)
+
+# finding percent of blocks that are x Grade HOLC
+gradeprop <- ejxred |> 
+    st_drop_geometry() |> 
+    select(c('grade','PM25','LOWINCPCT')) |> 
+    count(grade)
+gradeprop$n <- gradeprop$n/nrow(ejxred)
+gradeprop
+
+ggplot(gradeprop, aes(x = grade, y = n))+
+    geom_bar(stat = 'identity')
+```
+
+```{r}
+# Checking the map just made with a left join
+
+tm_shape(ejxred)+
+    tm_polygons(fill = 'grade')
+```
+
+```{r}
+# checking the mpa of an inner join
+innerjoin <- st_join(mapineqlos, ejscreen, left = FALSE)
+
+tm_shape(innerjoin) +
+    tm_polygons(fill = 'grade')
+```
+
+## Create two visualizations summarizing current conditions
+
+```{r}
+sumbygrade <- ejxred |> 
+    group_by(grade) |> 
+    summarise(meanlowinc = mean(LOWINCPCT), meanpm25 = mean(PM25), meanlowlifexpect = mean(LIFEEXPPCT, na.rm =TRUE))
+
+ggplot(sumbygrade, aes(x = grade, y = meanlowinc))+
+    geom_bar(stat ='identity')
+
+ggplot(sumbygrade, aes(x = grade, y = meanpm25))+
+    geom_bar(stat ='identity')
+
+ggplot(sumbygrade, aes(x = grade, y = meanlowlifexpect))+
+    geom_bar(stat ='identity')
+```
+
+## Write a brief paragraph reflecting on these results
+
+Visually, it seems that there is a relationship between the HOLC grade of a census block and % of people deemed low income, PM25, and 
+
+# Part 2: Legacy of redlining in pedstrian and bike accidents
+
+## Figure summarizing the percent of observations within redlined neighborhoods within each HOLC grade
+
+
+```{r}
+# Filter crash data to 2020-2025
+accidentyearfilter <- crashes |> 
+    filter(ACCIDENT_YEAR >= 2020)
+
+# Check which columns have more NA's x/y or lat/long
+
+sum((accidentyearfilter$POINT_X == 'NA'))  
+sum((accidentyearfilter$LATITUDE == 'NA'))  
+
+# Way more NAs in lat/lon, lets use x y instead
+
+# Get ride of NA's in coordinates
+accidentyearfilter <- accidentyearfilter |> 
+    filter(POINT_X != 'NA')
+# Convert character columns to geometries
+
+accidentyearfilter <- st_as_sf(accidentyearfilter, coords = c('POINT_X', 'POINT_Y'), crs = 4326)
+```
+
+```{r}
+# Joining accident df with HCOL in LA DF
+
+# Check CRS's before spatially joining
+st_crs(accidentyearfilter)
+st_crs(mapineqlos)
+
+# convert CRS's and then spatial join
+accidentyearfilter<- st_transform(accidentyearfilter, crs = st_crs(mapineqlos))
+
+# Join accidents with HCOL in LA
+accxHCOL <- st_join(mapineqlos, accidentyearfilter)
+```
+
+```{r}
+# Visualize proportion of pedestrian accidents and fatalities by HCOL Grade
+proppedHCOL <- accxHCOL |> 
+    st_drop_geometry() |> 
+    filter(PEDESTRIAN_ACCIDENT == 'Y') |> 
+    count(grade) 
+
+proppedfata <- accxHCOL |> 
+    st_drop_geometry() |> 
+    filter(COUNT_PED_KILLED > 0) |> 
+    count(grade)
+
+
+proppedHCOL$propacc <- proppedHCOL$n/sum(accxHCOL$PEDESTRIAN_ACCIDENT == 'Y', na.rm = TRUE)
+proppedHCOL$propfata <- proppedfata$n/sum(accxHCOL$COUNT_PED_KILLED > 0, na.rm =TRUE)
+
+proppedHCOL <- pivot_longer(proppedHCOL, cols = c('propfata','propacc'), names_to = 'aorf', values_to = 'prop')
+
+ggplot(proppedHCOL, aes(fill = aorf, x = grade, y = prop)) +
+    geom_bar(position = 'dodge',stat = 'identity') +
+    labs(title = 'Proportion of Pedestrian Accidents and Fatalities by HCOL Grade', x = 'HCOL Grade',y = 'Proportion', fill = 'Accident or Fatality') +
+    scale_fill_discrete(labels = c('Pedestrian Accident','Pedestrian Fatalities'))
+```
+
+```{r}
+# Visualize proportion of bicycle accidnets by HCOL Grade
+
+propbikeHCOL <- accxHCOL |> 
+    st_drop_geometry() |> 
+    filter(BICYCLE_ACCIDENT == 'Y') |> 
+    count(grade) 
+
+propbikefata <- accxHCOL |> 
+    st_drop_geometry() |> 
+    filter(COUNT_BICYCLIST_KILLED > 0) |> 
+    count(grade)
+
+
+propbikeHCOL$propacc <- propbikeHCOL$n/sum(accxHCOL$BICYCLE_ACCIDENT == 'Y', na.rm = TRUE)
+
+bikedeaths <- accxHCOL |> 
+    group_by(grade) |> 
+    filter(COUNT_BICYCLIST_KILLED > 0) |> 
+    count(grade) |> 
+    mutate(propdeath = n/sum(n))
+
+propbikeHCOL <- left_join(propbikeHCOL, bikedeaths, by = 'grade')
+
+propbikeHCOL <- pivot_longer(propbikeHCOL, cols = c('propdeath','propacc'), names_to = 'aorf', values_to = 'prop')
+
+ggplot(propbikeHCOL, aes(fill = aorf, x = grade, y = prop)) +
+    geom_bar(position = 'dodge',stat = 'identity') +
+    labs(title = 'Proportion of Bicyclist Accidents and Fatalities by HCOL Grade', x = 'HCOL Grade',y = 'Proportion', fill = 'Accident or Fatality') +
+    scale_fill_discrete(labels = c('Bicyclist Accident','Bicyclist Fatalities'))
+```
+
+```{r}
+bikepoints <- accidentyearfilter |> 
+    filter(BICYCLE_ACCIDENT == 'Y')
+
+tm_shape(mapineqlos)+
+    tm_polygons(fill = 'grade')+
+tm_shape(accidentyearfilter)+
+    tm_dots()
+```
