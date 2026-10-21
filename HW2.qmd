@@ -1,4 +1,4 @@
-title: HCOL Red-lining and Environmental Justice Issues in LA
+title: HOLC Red-lining and Environmental Justice Issues in LA
 date: 10/26/2026
 author: Jacob Sloan
 ---
@@ -6,6 +6,7 @@ author: Jacob Sloan
 knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
 ```
 ```{r}
+library(gt)
 library(tidyverse)
 library(sf)
 library(here)
@@ -37,15 +38,16 @@ tm_shape(laejscreen)+
 tm_shape(mapineqlos, is.main = TRUE) +
     tm_polygons(
         fill = 'grade',
+        fill_alpha = 0.5,
         fill.scale = tm_scale_categorical(values = c('green','blue','yellow','red')),
         fill.legend = tm_legend('HLOC Grade', frame = FALSE, position = tm_pos_out('center','bottom','left'))
     )+
     tm_title(text = 'HOLC Ranking of Neighborhoods in LA') +
-    tm_compass(type = 'radar', position = tm_pos_out('center','bottom','center'))+
+    tm_compass(type = 'arrow', position = tm_pos_out('center','bottom','center'))+
     tm_scalebar(position = tm_pos_out('center','bottom','right'))
 ```
 
-## Create table summarizing...
+## Create table summarizing proportion of census block in each HOCL Grade
 
 ```{r}
 # Check CRS's before spatially joining
@@ -62,35 +64,41 @@ gradeprop <- ejxred |>
     select(c('grade','PM25','LOWINCPCT')) |> 
     count(grade)
 gradeprop$n <- gradeprop$n/nrow(ejxred)
-gradeprop
-
-ggplot(gradeprop, aes(x = grade, y = n))+
-    geom_bar(stat = 'identity') +
-    labs(x = 'Grade',y = 'Proportion', title = 'Proportion of Census Blocks in Each HCOL Grade')
+gradeprop |> 
+    rename(proportion= n) |> 
+    gt()
 ```
 
 
-## Create two visualizations summarizing current conditions
+## Create three visualizations summarizing current conditions
 
 ```{r}
+# Summarizing mean PM25 concentration, percent of people low income, and percent people with low life expectancy by HOCL Grade.
+
 sumbygrade <- ejxred |> 
     group_by(grade) |> 
     summarise(meanlowinc = mean(LOWINCPCT), meanpm25 = mean(PM25), meanlowlifexpect = mean(LIFEEXPPCT, na.rm =TRUE))
 
+# Plotting each EJSCREEN variable by HOCL grade
+
 ggplot(sumbygrade, aes(x = grade, y = meanlowinc))+
-    geom_bar(stat ='identity')
+    geom_bar(stat ='identity', fill = 'lightgoldenrodyellow', color = 'deeppink4') +
+    labs(x = 'Grade',y = 'Proportion', title = 'Average Proportion Low Income in Each HOLC Grade')
+
 
 ggplot(sumbygrade, aes(x = grade, y = meanpm25))+
-    geom_bar(stat ='identity')
+    geom_bar(stat ='identity', fill = 'plum4', color = 'springgreen2') +
+    labs(x = 'Grade',y = 'Proportion', title = 'Average PM25 Concentration by HOLC Grade')
+
 
 ggplot(sumbygrade, aes(x = grade, y = meanlowlifexpect))+
-    geom_bar(stat ='identity') +
-    labs(x = 'Grade',y = 'Proportion', title = 'Proportion ')
+    geom_bar(stat ='identity', color = 'tomato4', fill = 'magenta1') +
+    labs(x = 'Grade',y = 'Proportion', title = 'Average Percent of Low Life Expectancy by HOLC Grade')
 ```
 
 ## Write a brief paragraph reflecting on these results
 
-Visually, it seems that there is a relationship between the HOLC grade of a census block and % of people deemed low income, PM25, and 
+Visually, it seems that there is a relationship between the HOLC grade of a census block and % of people deemed low income, PM25, and percent of low life expectancy. The relationship is less obvious for PM25, which makes sense since air flow is less defined by neighborhood boundaries.
 
 # Part 2: Legacy of redlining in pedstrian and bike accidents
 
@@ -118,7 +126,7 @@ accidentyearfilter <- st_as_sf(accidentyearfilter, coords = c('POINT_X', 'POINT_
 ```
 
 ```{r}
-# Joining accident df with HCOL in LA DF
+# Joining accident df with HOLC in LA DF
 
 # Check CRS's before spatially joining
 st_crs(accidentyearfilter)
@@ -127,62 +135,62 @@ st_crs(mapineqlos)
 # convert CRS's and then spatial join
 accidentyearfilter<- st_transform(accidentyearfilter, crs = st_crs(mapineqlos))
 
-# Join accidents with HCOL in LA
-accxHCOL <- st_join(mapineqlos, accidentyearfilter)
+# Join accidents with HOLC in LA
+accxHOLC <- st_join(mapineqlos, accidentyearfilter)
 ```
 
 ```{r}
-# Visualize proportion of pedestrian accidents and fatalities by HCOL Grade
-proppedHCOL <- accxHCOL |> 
+# Visualize proportion of pedestrian accidents and fatalities by HOLC Grade
+proppedHOLC <- accxHOLC |> 
     st_drop_geometry() |> 
     filter(PEDESTRIAN_ACCIDENT == 'Y') |> 
     count(grade) 
 
-proppedfata <- accxHCOL |> 
+proppedfata <- accxHOLC |> 
     st_drop_geometry() |> 
     filter(COUNT_PED_KILLED > 0) |> 
     count(grade)
 
 
-proppedHCOL$propacc <- proppedHCOL$n/sum(accxHCOL$PEDESTRIAN_ACCIDENT == 'Y', na.rm = TRUE)
-proppedHCOL$propfata <- proppedfata$n/sum(accxHCOL$COUNT_PED_KILLED > 0, na.rm =TRUE)
+proppedHOLC$propacc <- proppedHOLC$n/sum(accxHOLC$PEDESTRIAN_ACCIDENT == 'Y', na.rm = TRUE)
+proppedHOLC$propfata <- proppedfata$n/sum(accxHOLC$COUNT_PED_KILLED > 0, na.rm =TRUE)
 
-proppedHCOL <- pivot_longer(proppedHCOL, cols = c('propfata','propacc'), names_to = 'aorf', values_to = 'prop')
+proppedHOLC <- pivot_longer(proppedHOLC, cols = c('propfata','propacc'), names_to = 'aorf', values_to = 'prop')
 
-ggplot(proppedHCOL, aes(fill = aorf, x = grade, y = prop)) +
+ggplot(proppedHOLC, aes(fill = aorf, x = grade, y = prop)) +
     geom_bar(position = 'dodge',stat = 'identity') +
-    labs(title = 'Proportion of Pedestrian Accidents and Fatalities by HCOL Grade', x = 'HCOL Grade',y = 'Proportion', fill = 'Accident or Fatality') +
-    scale_fill_discrete(labels = c('Pedestrian Accident','Pedestrian Fatalities'))
+    labs(title = 'Proportion of Pedestrian Accidents and Fatalities by HOLC Grade', x = 'HOLC Grade',y = 'Proportion', fill = 'Accident or Fatality') +
+    scale_fill_discrete(labels = c('All Pedestrian Accidents','Pedestrian Accidents Resulting in Fatalities'))
 ```
 
 ```{r}
-# Visualize proportion of bicycle accidnets by HCOL Grade
+# Visualize proportion of bicycle accidnets by HOLC Grade
 
-propbikeHCOL <- accxHCOL |> 
+propbikeHOLC <- accxHOLC |> 
     st_drop_geometry() |> 
     filter(BICYCLE_ACCIDENT == 'Y') |> 
     count(grade) 
 
-propbikefata <- accxHCOL |> 
+propbikefata <- accxHOLC |> 
     st_drop_geometry() |> 
     filter(COUNT_BICYCLIST_KILLED > 0) |> 
     count(grade)
 
 
-propbikeHCOL$propacc <- propbikeHCOL$n/sum(accxHCOL$BICYCLE_ACCIDENT == 'Y', na.rm = TRUE)
+propbikeHOLC$propacc <- propbikeHOLC$n/sum(accxHOLC$BICYCLE_ACCIDENT == 'Y', na.rm = TRUE)
 
-bikedeaths <- accxHCOL |> 
+bikedeaths <- accxHOLC |> 
     group_by(grade) |> 
     filter(COUNT_BICYCLIST_KILLED > 0) |> 
     count(grade) |> 
     mutate(propdeath = n/sum(n))
 
-propbikeHCOL <- left_join(propbikeHCOL, bikedeaths, by = 'grade')
+propbikeHOLC <- left_join(propbikeHOLC, bikedeaths, by = 'grade')
 
-propbikeHCOL <- pivot_longer(propbikeHCOL, cols = c('propdeath','propacc'), names_to = 'aorf', values_to = 'prop')
+propbikeHOLC <- pivot_longer(propbikeHOLC, cols = c('propdeath','propacc'), names_to = 'aorf', values_to = 'prop')
 
-ggplot(propbikeHCOL, aes(fill = aorf, x = grade, y = prop)) +
+ggplot(propbikeHOLC, aes(fill = aorf, x = grade, y = prop)) +
     geom_bar(position = 'dodge',stat = 'identity') +
-    labs(title = 'Proportion of Bicyclist Accidents and Fatalities by HCOL Grade', x = 'HCOL Grade',y = 'Proportion', fill = 'Accident or Fatality') +
-    scale_fill_discrete(labels = c('Bicyclist Accident','Bicyclist Fatalities'))
+    labs(title = 'Proportion of Bicyclist Accidents and Fatalities by HOLC Grade', x = 'HOLC Grade',y = 'Proportion', fill = 'Accident or Fatality') +
+    scale_fill_discrete(labels = c('All Bicyclist Accidents','Bicyclist Accidents Causing Fatalities'))
 ```
