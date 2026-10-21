@@ -1,3 +1,4 @@
+---
 title: HOLC Red-lining and Environmental Justice Issues in LA
 date: 10/26/2026
 author: Jacob Sloan
@@ -17,7 +18,7 @@ library(tmap)
 ejscreen <- st_read('data/ejscreen/EJSCREEN_2023_BG_StatePct_with_AS_CNMI_GU_VI.gdb')
 mapineqlos <- st_read('data/mapping-inequality/mapping-inequality-los-angeles.json')
 mpainqnew <- st_read('data/mapping-inequality/mapping-inequality-new-haven.json')
-crashes <- st_read('data/SWITRS_LA/Crashes.csv')
+crashes <- read.csv('data/SWITRS_LA/Crashes.csv')
 ```
 
 # Part 1: Legacy of redlining in current environmental (in)justice
