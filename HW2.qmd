@@ -24,6 +24,8 @@ crashes <- st_read('data/SWITRS_LA/Crashes.csv')
 ## Create a map of historical redlined neighborhoods
 
 ```{r}
+#| fig-width: 10
+#| fig-height: 7
 # map of LA redlining
 laejscreen <- ejscreen |> 
     filter(CNTY_NAME == 'Los Angeles County')
@@ -32,7 +34,6 @@ laejscreen <- ejscreen |>
 
 tm_shape(laejscreen)+
     tm_borders(lwd = 0.1)+
-tm_layout(asp = 0) +
 tm_shape(mapineqlos, is.main = TRUE) +
     tm_polygons(
         fill = 'grade',
@@ -64,23 +65,10 @@ gradeprop$n <- gradeprop$n/nrow(ejxred)
 gradeprop
 
 ggplot(gradeprop, aes(x = grade, y = n))+
-    geom_bar(stat = 'identity')
+    geom_bar(stat = 'identity') +
+    labs(x = 'Grade',y = 'Proportion', title = 'Proportion of Census Blocks in Each HCOL Grade')
 ```
 
-```{r}
-# Checking the map just made with a left join
-
-tm_shape(ejxred)+
-    tm_polygons(fill = 'grade')
-```
-
-```{r}
-# checking the mpa of an inner join
-innerjoin <- st_join(mapineqlos, ejscreen, left = FALSE)
-
-tm_shape(innerjoin) +
-    tm_polygons(fill = 'grade')
-```
 
 ## Create two visualizations summarizing current conditions
 
@@ -96,7 +84,8 @@ ggplot(sumbygrade, aes(x = grade, y = meanpm25))+
     geom_bar(stat ='identity')
 
 ggplot(sumbygrade, aes(x = grade, y = meanlowlifexpect))+
-    geom_bar(stat ='identity')
+    geom_bar(stat ='identity') +
+    labs(x = 'Grade',y = 'Proportion', title = 'Proportion ')
 ```
 
 ## Write a brief paragraph reflecting on these results
@@ -196,14 +185,4 @@ ggplot(propbikeHCOL, aes(fill = aorf, x = grade, y = prop)) +
     geom_bar(position = 'dodge',stat = 'identity') +
     labs(title = 'Proportion of Bicyclist Accidents and Fatalities by HCOL Grade', x = 'HCOL Grade',y = 'Proportion', fill = 'Accident or Fatality') +
     scale_fill_discrete(labels = c('Bicyclist Accident','Bicyclist Fatalities'))
-```
-
-```{r}
-bikepoints <- accidentyearfilter |> 
-    filter(BICYCLE_ACCIDENT == 'Y')
-
-tm_shape(mapineqlos)+
-    tm_polygons(fill = 'grade')+
-tm_shape(accidentyearfilter)+
-    tm_dots()
 ```
