@@ -14,7 +14,7 @@ library(here)
 library(tmap)
 ```
 
-```{r}
+```{r, echo = FALSE}
 ejscreen <- st_read('data/ejscreen/EJSCREEN_2023_BG_StatePct_with_AS_CNMI_GU_VI.gdb')
 mapineqlos <- st_read('data/mapping-inequality/mapping-inequality-los-angeles.json')
 mpainqnew <- st_read('data/mapping-inequality/mapping-inequality-new-haven.json')
@@ -33,10 +33,8 @@ laejscreen <- ejscreen |>
     filter(CNTY_NAME == 'Los Angeles County')
 
 
-
-tm_shape(laejscreen)+
-    tm_borders(lwd = 0.1)+
-tm_shape(mapineqlos, is.main = TRUE) +
+tm_basemap('OpenStreetMap.DE') +
+tm_shape(mapineqlos) +
     tm_polygons(
         fill = 'grade',
         fill_alpha = 0.5,
@@ -57,17 +55,20 @@ st_crs(ejscreen)
 
 # convert CRS's and then spatial join
 mapineqlos<- st_transform(mapineqlos, crs = st_crs(ejscreen))
-ejxred <- st_join(mapineqlos, ejscreen)
+ejxred <- st_join(mapineqlos, ejscreen )
 
+ejxred |> 
+    count(grade)
 # finding percent of blocks that are x Grade HOLC
 gradeprop <- ejxred |> 
     st_drop_geometry() |> 
-    select(c('grade','PM25','LOWINCPCT')) |> 
+    select(c('grade','P_PM25','LOWINCPCT')) |> 
     count(grade)
 gradeprop$n <- gradeprop$n/nrow(ejxred)
 gradeprop |> 
     rename(proportion= n) |> 
-    gt()
+    gt() |> 
+    tab_header('Proportion of Census Blocks in each HOCL Grade')
 ```
 
 
@@ -78,7 +79,7 @@ gradeprop |>
 
 sumbygrade <- ejxred |> 
     group_by(grade) |> 
-    summarise(meanlowinc = mean(LOWINCPCT), meanpm25 = mean(PM25), meanlowlifexpect = mean(LIFEEXPPCT, na.rm =TRUE))
+    summarise(meanlowinc = mean(LOWINCPCT, na.rm =TRUE), meanP_PM25 = mean(P_PM25, na.rm =TRUE), meanlowlifexpect = mean(P_LIFEEXPPCT, na.rm =TRUE))
 
 # Plotting each EJSCREEN variable by HOCL grade
 
@@ -87,14 +88,14 @@ ggplot(sumbygrade, aes(x = grade, y = meanlowinc))+
     labs(x = 'Grade',y = 'Proportion', title = 'Average Proportion Low Income in Each HOLC Grade')
 
 
-ggplot(sumbygrade, aes(x = grade, y = meanpm25))+
+ggplot(sumbygrade, aes(x = grade, y = meanP_PM25))+
     geom_bar(stat ='identity', fill = 'plum4', color = 'springgreen2') +
-    labs(x = 'Grade',y = 'Proportion', title = 'Average PM25 Concentration by HOLC Grade')
+    labs(x = 'Grade',y = 'Percentile of PM25 Concentration', title = 'Average PM25 Concentration Percentile by HOLC Grade')
 
 
 ggplot(sumbygrade, aes(x = grade, y = meanlowlifexpect))+
     geom_bar(stat ='identity', color = 'tomato4', fill = 'magenta1') +
-    labs(x = 'Grade',y = 'Proportion', title = 'Average Percent of Low Life Expectancy by HOLC Grade')
+    labs(x = 'Grade',y = 'Mean Percentile for Low Life Expectancy', title = 'Average Percentile of Low Life Expectancy by HOLC Grade')
 ```
 
 ## Write a brief paragraph reflecting on these results
@@ -113,8 +114,8 @@ accidentyearfilter <- crashes |>
 
 # Check which columns have more NA's x/y or lat/long
 
-sum((accidentyearfilter$POINT_X == 'NA'))  
-sum((accidentyearfilter$LATITUDE == 'NA'))  
+sum(is.na(accidentyearfilter$POINT_X))
+sum(is.na(accidentyearfilter$LATITUDE))
 
 # Way more NAs in lat/lon, lets use x y instead
 
@@ -130,8 +131,12 @@ accidentyearfilter <- st_as_sf(accidentyearfilter, coords = c('POINT_X', 'POINT_
 # Joining accident df with HOLC in LA DF
 
 # Check CRS's before spatially joining
-st_crs(accidentyearfilter)
-st_crs(mapineqlos)
+if (st_crs(accidentyearfilter) == st_crs(mapineqlos)) {
+    print('It is all good!')
+} else {
+    warning('It is not good the CRS do not match')
+}
+
 
 # convert CRS's and then spatial join
 accidentyearfilter<- st_transform(accidentyearfilter, crs = st_crs(mapineqlos))
