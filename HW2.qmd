@@ -71,7 +71,6 @@ gradeprop |>
     tab_header('Proportion of Census Blocks in each HOCL Grade')
 ```
 
-
 ## Create three visualizations summarizing current conditions
 
 ```{r}
