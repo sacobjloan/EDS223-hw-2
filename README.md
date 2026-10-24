@@ -16,7 +16,7 @@ EDS223-HW2
 
 ### Data Access
 
-All data used for this project, including the EJScreen, HOCL redlining in LA, and crash data can be found in this google drive. [https://drive.google.com/file/d/14x1CTz3ZUJdm8_8625OGM5W32TkcCife/view][Data used in LA Redlining Project].
+[All data used for this project, including the EJScreen, HOCL redlining in LA, and crash data can be found in this google drive.](https://drive.google.com/file/d/14x1CTz3ZUJdm8_8625OGM5W32TkcCife/view)
 
 ### Authors and Contributors
 
