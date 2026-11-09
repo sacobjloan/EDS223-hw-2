@@ -29,9 +29,6 @@ crashes <- read.csv('data/SWITRS_LA/Crashes.csv')
 #| fig-width: 10
 #| fig-height: 7
 # map of LA redlining
-laejscreen <- ejscreen |> 
-    filter(CNTY_NAME == 'Los Angeles County')
-
 
 tm_basemap('OpenStreetMap.DE') +
 tm_shape(mapineqlos) +
@@ -49,20 +46,23 @@ tm_shape(mapineqlos) +
 ## Create table summarizing proportion of census block in each HOCL Grade
 
 ```{r}
+laejscreen <- ejscreen |> 
+    filter(CNTY_NAME == 'Los Angeles County')
+
 # Check CRS's before spatially joining
-st_crs(mapineqlos)
-st_crs(ejscreen)
+
+st_crs(mapineqlos) == st_crs(laejscreen)
 
 # convert CRS's and then spatial join
-mapineqlos<- st_transform(mapineqlos, crs = st_crs(ejscreen))
-ejxred <- st_join(mapineqlos, ejscreen )
+mapineqlos<- st_transform(mapineqlos, crs = st_crs(laejscreen))
+ejxred <- st_join(laejscreen, mapineqlos, join = st_intersects)
 
 ejxred |> 
     count(grade)
 # finding percent of blocks that are x Grade HOLC
 gradeprop <- ejxred |> 
     st_drop_geometry() |> 
-    select(c('grade','P_PM25','LOWINCPCT')) |> 
+    select('grade') |> 
     count(grade)
 gradeprop$n <- gradeprop$n/nrow(ejxred)
 gradeprop |> 
@@ -109,7 +109,10 @@ Visually, it seems that there is a relationship between the HOLC grade of a cens
 ```{r}
 # Filter crash data to 2020-2025
 accidentyearfilter <- crashes |> 
+    filter(PEDESTRIAN_ACCIDENT == 'Y' | BICYCLE_ACCIDENT == 'Y') |> 
     filter(ACCIDENT_YEAR >= 2020)
+
+unique(accidentyearfilter$ACCIDENT_YEAR)
 
 # Check which columns have more NA's x/y or lat/long
 
@@ -169,7 +172,7 @@ ggplot(proppedHOLC, aes(fill = aorf, x = grade, y = prop)) +
 ```
 
 ```{r}
-# Visualize proportion of bicycle accidnets by HOLC Grade
+# Visualize proportion of bicycle accidents by HOLC Grade
 
 propbikeHOLC <- accxHOLC |> 
     st_drop_geometry() |> 
