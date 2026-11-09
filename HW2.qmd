@@ -164,7 +164,7 @@ proppedHOLC <- pivot_longer(proppedHOLC, cols = c('propfata','propacc'), names_t
 
 ggplot(proppedHOLC, aes(fill = aorf, x = grade, y = prop)) +
     geom_bar(position = 'dodge',stat = 'identity') +
-    labs(title = 'Proportion of Pedestrian Accidents and Fatalities by HOLC Grade', x = 'HOLC Grade',y = 'Proportion', fill = 'Accident or Fatality') +
+    labs(title = 'Proportion of Pedestrian Accidents \n and Fatalities by HOLC Grade', x = 'HOLC Grade',y = 'Proportion', fill = 'Accident or Fatality') +
     scale_fill_discrete(labels = c('All Pedestrian Accidents','Pedestrian Accidents Resulting in Fatalities'))
 ```
 
@@ -196,6 +196,6 @@ propbikeHOLC <- pivot_longer(propbikeHOLC, cols = c('propdeath','propacc'), name
 
 ggplot(propbikeHOLC, aes(fill = aorf, x = grade, y = prop)) +
     geom_bar(position = 'dodge',stat = 'identity') +
-    labs(title = 'Proportion of Bicyclist Accidents and Fatalities by HOLC Grade', x = 'HOLC Grade',y = 'Proportion', fill = 'Accident or Fatality') +
+    labs(title = 'Proportion of Bicyclist Accidents \n and Fatalities by HOLC Grade', x = 'HOLC Grade',y = 'Proportion', fill = 'Accident or Fatality') +
     scale_fill_discrete(labels = c('All Bicyclist Accidents','Bicyclist Accidents Causing Fatalities'))
 ```
