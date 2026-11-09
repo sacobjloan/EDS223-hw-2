@@ -1,0 +1,221 @@
+---
+title: HOLC Red-lining and Environmental Justice Issues in LA
+date: 10/26/2026
+author: Jacob Sloan
+---
+```{r setup, include=FALSE} 
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+```
+```{r}
+library(gt)
+library(tidyverse)
+library(sf)
+library(here)
+library(tmap)
+```
+
+```{r, echo = FALSE}
+ejscreen <- st_read('data/ejscreen/EJSCREEN_2023_BG_StatePct_with_AS_CNMI_GU_VI.gdb')
+mapineqlos <- st_read('data/mapping-inequality/mapping-inequality-los-angeles.json')
+mpainqnew <- st_read('data/mapping-inequality/mapping-inequality-new-haven.json')
+crashes <- read.csv('data/SWITRS_LA/Crashes.csv')
+```
+
+# Part 1: Legacy of redlining in current environmental (in)justice
+
+## Create a map of historical redlined neighborhoods
+
+```{r}
+#| fig-width: 10
+#| fig-height: 7
+# map of LA redlining
+
+tm_basemap('OpenStreetMap.DE') +
+tm_shape(mapineqlos) +
+    tm_polygons(
+        fill = 'grade',
+        fill_alpha = 0.5,
+        fill.scale = tm_scale_categorical(values = c('green','blue','yellow','red')),
+        fill.legend = tm_legend('HLOC Grade', frame = FALSE, 
+            position = tm_pos_out('center','bottom','left'))
+    )+
+    tm_title(text = 'HOLC Ranking of Neighborhoods in LA') +
+    tm_compass(type = 'arrow', position = tm_pos_out('center','bottom','center'))+
+    tm_scalebar(position = tm_pos_out('center','bottom','right'))
+```
+
+## Create table summarizing proportion of census block in each HOCL Grade
+
+```{r}
+laejscreen <- ejscreen |> 
+    filter(CNTY_NAME == 'Los Angeles County')
+
+# Check CRS's before spatially joining
+
+st_crs(mapineqlos) == st_crs(laejscreen)
+
+# convert CRS's and then spatial join
+mapineqlos<- st_transform(mapineqlos, crs = st_crs(laejscreen))
+ejxred <- st_join(laejscreen, mapineqlos, join = st_intersects)
+
+# finding percent of blocks that are x Grade HOLC
+gradeprop <- ejxred |> 
+    st_drop_geometry() |> 
+    select('grade') |> 
+    count(grade)
+gradeprop$n <- gradeprop$n/nrow(ejxred)
+gradeprop |> 
+    rename(proportion= n) |> 
+    gt() |> 
+    tab_header('Proportion of Census Blocks in each HOCL Grade')
+```
+
+## Create three visualizations summarizing current conditions
+
+```{r}
+# Summarizing mean PM25 concentration, percent of people low income, 
+# and percent people with low life expectancy by HOCL Grade.
+
+sumbygrade <- ejxred |> 
+    group_by(grade) |> 
+    summarise(meanlowinc = mean(LOWINCPCT, na.rm =TRUE), 
+        meanP_PM25 = mean(P_PM25, na.rm =TRUE), 
+        meanlowlifexpect = mean(P_LIFEEXPPCT, na.rm =TRUE))
+
+# Plotting each EJSCREEN variable by HOCL grade
+
+ggplot(sumbygrade, aes(x = grade, y = meanlowinc))+
+    geom_bar(stat ='identity', fill = 'lightgoldenrodyellow', color = 'deeppink4') +
+    labs(x = 'Grade',y = 'Proportion', 
+        title = 'Average Proportion Low Income in Each HOLC Grade')
+
+
+ggplot(sumbygrade, aes(x = grade, y = meanP_PM25))+
+    geom_bar(stat ='identity', fill = 'plum4', color = 'springgreen2') +
+    labs(x = 'Grade',y = 'Percentile of PM25 Concentration', 
+        title = 'Average PM25 Concentration Percentile by HOLC Grade')
+
+
+ggplot(sumbygrade, aes(x = grade, y = meanlowlifexpect))+
+    geom_bar(stat ='identity', color = 'tomato4', fill = 'magenta1') +
+    labs(x = 'Grade',y = 'Mean Percentile for Low Life Expectancy', 
+        title = 'Average Percentile of Low Life Expectancy by HOLC Grade')
+```
+
+## Write a brief paragraph reflecting on these results
+
+Visually, it seems that there is a relationship between the HOLC grade of a census block and % of people deemed low income, PM25, and percent of low life expectancy. The relationship is less obvious for PM25, which makes sense since air flow is less defined by neighborhood boundaries.
+
+# Part 2: Legacy of redlining in pedstrian and bike accidents
+
+## Figure summarizing the percent of observations within redlined neighborhoods within each HOLC grade
+
+
+```{r}
+# Filter crash data to 2020-2025
+accidentyearfilter <- crashes |> 
+    filter(PEDESTRIAN_ACCIDENT == 'Y' | BICYCLE_ACCIDENT == 'Y') |> 
+    filter(ACCIDENT_YEAR >= 2020)
+
+unique(accidentyearfilter$ACCIDENT_YEAR)
+
+# Check which columns have more NA's x/y or lat/long
+
+sum(is.na(accidentyearfilter$POINT_X))
+sum(is.na(accidentyearfilter$LATITUDE))
+
+# Way more NAs in lat/lon, lets use x y instead
+
+# Get rid of NA's in coordinates
+accidentyearfilter <- accidentyearfilter |> 
+    filter(POINT_X != 'NA')
+# Convert character columns to geometries
+
+accidentyearfilter <- st_as_sf(accidentyearfilter,
+    coords = c('POINT_X', 'POINT_Y'), crs = 4326)
+```
+
+```{r}
+# Joining accident df with HOLC in LA DF
+
+# Check CRS's before spatially joining
+if (st_crs(accidentyearfilter) == st_crs(mapineqlos)) {
+    print('It is all good!')
+} else {
+    warning('It is not good the CRS do not match')
+}
+
+
+# convert CRS's and then spatial join
+accidentyearfilter<- st_transform(accidentyearfilter, 
+    crs = st_crs(mapineqlos))
+
+# Join accidents with HOLC in LA
+accxHOLC <- st_join(mapineqlos, accidentyearfilter)
+```
+
+```{r}
+# Visualize proportion of pedestrian accidents and fatalities by HOLC Grade
+proppedHOLC <- accxHOLC |> 
+    st_drop_geometry() |> 
+    filter(PEDESTRIAN_ACCIDENT == 'Y') |> 
+    count(grade) 
+
+proppedfata <- accxHOLC |> 
+    st_drop_geometry() |> 
+    filter(COUNT_PED_KILLED > 0) |> 
+    count(grade)
+
+
+proppedHOLC$propacc <- proppedHOLC$n/sum(accxHOLC$PEDESTRIAN_ACCIDENT == 'Y', 
+    na.rm = TRUE)
+proppedHOLC$propfata <- proppedfata$n/sum(accxHOLC$COUNT_PED_KILLED > 0,
+    na.rm =TRUE)
+
+proppedHOLC <- pivot_longer(proppedHOLC, cols = c('propfata','propacc'),
+    names_to = 'aorf', values_to = 'prop')
+
+ggplot(proppedHOLC, aes(fill = aorf, x = grade, y = prop)) +
+    geom_bar(position = 'dodge',stat = 'identity') +
+    labs(title = 'Proportion of Pedestrian Accidents \n and Fatalities by HOLC Grade', 
+        x = 'HOLC Grade',y = 'Proportion', fill = 'Accident or Fatality') +
+    scale_fill_discrete(labels = c('All Pedestrian Accidents',
+        'Pedestrian Accidents Resulting in Fatalities'))
+```
+
+```{r}
+# Visualize proportion of bicycle accidents by HOLC Grade
+
+propbikeHOLC <- accxHOLC |> 
+    st_drop_geometry() |> 
+    filter(BICYCLE_ACCIDENT == 'Y') |> 
+    count(grade) 
+
+propbikefata <- accxHOLC |> 
+    st_drop_geometry() |> 
+    filter(COUNT_BICYCLIST_KILLED > 0) |> 
+    count(grade)
+
+
+propbikeHOLC$propacc <- propbikeHOLC$n/sum(accxHOLC$BICYCLE_ACCIDENT == 'Y', 
+    na.rm = TRUE)
+
+bikedeaths <- accxHOLC |> 
+    group_by(grade) |> 
+    filter(COUNT_BICYCLIST_KILLED > 0) |> 
+    count(grade) |> 
+    mutate(propdeath = n/sum(n))
+
+propbikeHOLC <- left_join(propbikeHOLC, bikedeaths, by = 'grade')
+
+propbikeHOLC <- pivot_longer(propbikeHOLC, cols = c('propdeath','propacc'), 
+    names_to = 'aorf', values_to = 'prop')
+
+ggplot(propbikeHOLC, aes(fill = aorf, x = grade, y = prop)) +
+    geom_bar(position = 'dodge',stat = 'identity') +
+    labs(title = 'Proportion of Bicyclist Accidents \n and Fatalities by HOLC Grade', 
+        x = 'HOLC Grade',y = 'Proportion', fill = 'Accident or Fatality') +
+    scale_fill_discrete(labels = c('All Bicyclist Accidents',
+        'Bicyclist Accidents Causing Fatalities'))
+```
+

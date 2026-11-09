@@ -36,7 +36,8 @@ tm_shape(mapineqlos) +
         fill = 'grade',
         fill_alpha = 0.5,
         fill.scale = tm_scale_categorical(values = c('green','blue','yellow','red')),
-        fill.legend = tm_legend('HLOC Grade', frame = FALSE, position = tm_pos_out('center','bottom','left'))
+        fill.legend = tm_legend('HLOC Grade', frame = FALSE, 
+            position = tm_pos_out('center','bottom','left'))
     )+
     tm_title(text = 'HOLC Ranking of Neighborhoods in LA') +
     tm_compass(type = 'arrow', position = tm_pos_out('center','bottom','center'))+
@@ -57,8 +58,6 @@ st_crs(mapineqlos) == st_crs(laejscreen)
 mapineqlos<- st_transform(mapineqlos, crs = st_crs(laejscreen))
 ejxred <- st_join(laejscreen, mapineqlos, join = st_intersects)
 
-ejxred |> 
-    count(grade)
 # finding percent of blocks that are x Grade HOLC
 gradeprop <- ejxred |> 
     st_drop_geometry() |> 
@@ -74,27 +73,33 @@ gradeprop |>
 ## Create three visualizations summarizing current conditions
 
 ```{r}
-# Summarizing mean PM25 concentration, percent of people low income, and percent people with low life expectancy by HOCL Grade.
+# Summarizing mean PM25 concentration, percent of people low income, 
+# and percent people with low life expectancy by HOCL Grade.
 
 sumbygrade <- ejxred |> 
     group_by(grade) |> 
-    summarise(meanlowinc = mean(LOWINCPCT, na.rm =TRUE), meanP_PM25 = mean(P_PM25, na.rm =TRUE), meanlowlifexpect = mean(P_LIFEEXPPCT, na.rm =TRUE))
+    summarise(meanlowinc = mean(LOWINCPCT, na.rm =TRUE), 
+        meanP_PM25 = mean(P_PM25, na.rm =TRUE), 
+        meanlowlifexpect = mean(P_LIFEEXPPCT, na.rm =TRUE))
 
 # Plotting each EJSCREEN variable by HOCL grade
 
 ggplot(sumbygrade, aes(x = grade, y = meanlowinc))+
     geom_bar(stat ='identity', fill = 'lightgoldenrodyellow', color = 'deeppink4') +
-    labs(x = 'Grade',y = 'Proportion', title = 'Average Proportion Low Income in Each HOLC Grade')
+    labs(x = 'Grade',y = 'Proportion', 
+        title = 'Average Proportion Low Income in Each HOLC Grade')
 
 
 ggplot(sumbygrade, aes(x = grade, y = meanP_PM25))+
     geom_bar(stat ='identity', fill = 'plum4', color = 'springgreen2') +
-    labs(x = 'Grade',y = 'Percentile of PM25 Concentration', title = 'Average PM25 Concentration Percentile by HOLC Grade')
+    labs(x = 'Grade',y = 'Percentile of PM25 Concentration', 
+        title = 'Average PM25 Concentration Percentile by HOLC Grade')
 
 
 ggplot(sumbygrade, aes(x = grade, y = meanlowlifexpect))+
     geom_bar(stat ='identity', color = 'tomato4', fill = 'magenta1') +
-    labs(x = 'Grade',y = 'Mean Percentile for Low Life Expectancy', title = 'Average Percentile of Low Life Expectancy by HOLC Grade')
+    labs(x = 'Grade',y = 'Mean Percentile for Low Life Expectancy', 
+        title = 'Average Percentile of Low Life Expectancy by HOLC Grade')
 ```
 
 ## Write a brief paragraph reflecting on these results
@@ -121,12 +126,13 @@ sum(is.na(accidentyearfilter$LATITUDE))
 
 # Way more NAs in lat/lon, lets use x y instead
 
-# Get ride of NA's in coordinates
+# Get rid of NA's in coordinates
 accidentyearfilter <- accidentyearfilter |> 
     filter(POINT_X != 'NA')
 # Convert character columns to geometries
 
-accidentyearfilter <- st_as_sf(accidentyearfilter, coords = c('POINT_X', 'POINT_Y'), crs = 4326)
+accidentyearfilter <- st_as_sf(accidentyearfilter,
+    coords = c('POINT_X', 'POINT_Y'), crs = 4326)
 ```
 
 ```{r}
@@ -141,7 +147,8 @@ if (st_crs(accidentyearfilter) == st_crs(mapineqlos)) {
 
 
 # convert CRS's and then spatial join
-accidentyearfilter<- st_transform(accidentyearfilter, crs = st_crs(mapineqlos))
+accidentyearfilter<- st_transform(accidentyearfilter, 
+    crs = st_crs(mapineqlos))
 
 # Join accidents with HOLC in LA
 accxHOLC <- st_join(mapineqlos, accidentyearfilter)
@@ -160,15 +167,20 @@ proppedfata <- accxHOLC |>
     count(grade)
 
 
-proppedHOLC$propacc <- proppedHOLC$n/sum(accxHOLC$PEDESTRIAN_ACCIDENT == 'Y', na.rm = TRUE)
-proppedHOLC$propfata <- proppedfata$n/sum(accxHOLC$COUNT_PED_KILLED > 0, na.rm =TRUE)
+proppedHOLC$propacc <- proppedHOLC$n/sum(accxHOLC$PEDESTRIAN_ACCIDENT == 'Y', 
+    na.rm = TRUE)
+proppedHOLC$propfata <- proppedfata$n/sum(accxHOLC$COUNT_PED_KILLED > 0,
+    na.rm =TRUE)
 
-proppedHOLC <- pivot_longer(proppedHOLC, cols = c('propfata','propacc'), names_to = 'aorf', values_to = 'prop')
+proppedHOLC <- pivot_longer(proppedHOLC, cols = c('propfata','propacc'),
+    names_to = 'aorf', values_to = 'prop')
 
 ggplot(proppedHOLC, aes(fill = aorf, x = grade, y = prop)) +
     geom_bar(position = 'dodge',stat = 'identity') +
-    labs(title = 'Proportion of Pedestrian Accidents \n and Fatalities by HOLC Grade', x = 'HOLC Grade',y = 'Proportion', fill = 'Accident or Fatality') +
-    scale_fill_discrete(labels = c('All Pedestrian Accidents','Pedestrian Accidents Resulting in Fatalities'))
+    labs(title = 'Proportion of Pedestrian Accidents \n and Fatalities by HOLC Grade', 
+        x = 'HOLC Grade',y = 'Proportion', fill = 'Accident or Fatality') +
+    scale_fill_discrete(labels = c('All Pedestrian Accidents',
+        'Pedestrian Accidents Resulting in Fatalities'))
 ```
 
 ```{r}
@@ -185,7 +197,8 @@ propbikefata <- accxHOLC |>
     count(grade)
 
 
-propbikeHOLC$propacc <- propbikeHOLC$n/sum(accxHOLC$BICYCLE_ACCIDENT == 'Y', na.rm = TRUE)
+propbikeHOLC$propacc <- propbikeHOLC$n/sum(accxHOLC$BICYCLE_ACCIDENT == 'Y', 
+    na.rm = TRUE)
 
 bikedeaths <- accxHOLC |> 
     group_by(grade) |> 
@@ -195,10 +208,13 @@ bikedeaths <- accxHOLC |>
 
 propbikeHOLC <- left_join(propbikeHOLC, bikedeaths, by = 'grade')
 
-propbikeHOLC <- pivot_longer(propbikeHOLC, cols = c('propdeath','propacc'), names_to = 'aorf', values_to = 'prop')
+propbikeHOLC <- pivot_longer(propbikeHOLC, cols = c('propdeath','propacc'), 
+    names_to = 'aorf', values_to = 'prop')
 
 ggplot(propbikeHOLC, aes(fill = aorf, x = grade, y = prop)) +
     geom_bar(position = 'dodge',stat = 'identity') +
-    labs(title = 'Proportion of Bicyclist Accidents \n and Fatalities by HOLC Grade', x = 'HOLC Grade',y = 'Proportion', fill = 'Accident or Fatality') +
-    scale_fill_discrete(labels = c('All Bicyclist Accidents','Bicyclist Accidents Causing Fatalities'))
+    labs(title = 'Proportion of Bicyclist Accidents \n and Fatalities by HOLC Grade', 
+        x = 'HOLC Grade',y = 'Proportion', fill = 'Accident or Fatality') +
+    scale_fill_discrete(labels = c('All Bicyclist Accidents',
+        'Bicyclist Accidents Causing Fatalities'))
 ```
